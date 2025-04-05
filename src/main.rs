@@ -5,6 +5,7 @@ use sqlx::{PgPool};
 
 
 mod lessons;
+mod handlers;
 
 use lessons::state::AppState;
 

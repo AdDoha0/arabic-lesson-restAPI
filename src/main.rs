@@ -1,33 +1,19 @@
 use std::{clone, net::TcpListener};
 
-use axum::Router;
-use serde::Serialize;
-use sqlx::{FromRow, PgPool};
+use axum::{routing::{get, post}, Router};
+use sqlx::{PgPool};
+
+mod state;
+mod serializers;
+mod handlers;
+
+use state::AppState;
+use crate::handlers::*;
 
 
 
-#[derive(Serialize, FromRow)]
-struct Item {
-    id: i32,
-    name: String,
-    description: String,
-}
-
-
-#[derive(Serialize)]
-struct RequestItem {
-    name: String,
-    description: String,
-}
-
-
-#[derive(Clone)]
-struct AppState {
-    dp_pool: PgPool,
-}
-
-impl AppState {
-
+async fn root() -> &'static str {
+    "Arabic API"
 }
 
 
@@ -41,15 +27,11 @@ async fn main() {
         .await
         .expect("Failed to connect to Postgres");
 
-
-    let app_state = AppState {
-        dp_pool: db_pool,
-    };
-
-    let app = Router::new();
+    let app = Router::new()
+        .route("/", get(root))
+        .route("/items", post(create_item))
+        .with_state(AppState { db_pool: db_pool });
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
-
-
 }

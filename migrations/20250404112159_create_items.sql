@@ -25,7 +25,7 @@ CREATE TABLE word
     id          SERIAL PRIMARY KEY,
     term        VARCHAR(100) NOT NULL,
     definition  VARCHAR(100) NOT NULL,
-    lesson_id   INTEGER REFERENCES lesson(id)
+    lesson      INTEGER REFERENCES lesson(id)
 )
 
 

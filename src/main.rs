@@ -3,13 +3,10 @@ use std::{clone, net::TcpListener};
 use axum::{routing::{get, post}, Router};
 use sqlx::{PgPool};
 
-mod state;
-mod serializers;
-mod handlers;
 
-use state::AppState;
-use crate::handlers::*;
+mod lessons;
 
+use lessons::state::AppState;
 
 
 async fn root() -> &'static str {
@@ -29,8 +26,6 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(root))
-        .route("/items", post(create_item))
-
         .with_state(AppState { db_pool: db_pool });
 
 

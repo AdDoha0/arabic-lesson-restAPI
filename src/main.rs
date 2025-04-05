@@ -30,7 +30,9 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root))
         .route("/items", post(create_item))
+
         .with_state(AppState { db_pool: db_pool });
+
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();

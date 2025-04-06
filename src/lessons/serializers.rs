@@ -1,12 +1,11 @@
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
-
-
-
+// use chrono::NaiveDateTime;
+use sqlx::types::chrono::NaiveDateTime;
 
 #[derive(Serialize, FromRow)]
 pub struct Textbook {
-    pub id: u32,
+    pub id: i32,
     pub title: String,
     pub description: String
 }
@@ -14,22 +13,22 @@ pub struct Textbook {
 
 #[derive(Serialize, FromRow)]
 pub struct Lesson {
-    pub id: u32,
+    pub id: i32,
     pub title: String,
     pub text: String,
     pub video_url: Option<String>,
-    pub created_at: chrono::NaiveDateTime,
-    pub volume: u32,
+    pub created_at: NaiveDateTime,
+    pub textbook_id: i32,
 }
 
 
 
 #[derive(Serialize, FromRow)]
 pub struct Word {
-    pub id: u32,
+    pub id: i32,
     pub term: String,
     pub definition: String,
-    pub lesson: u32,
+    pub lesson_id: i32,
 }
 
 // ------------------------------request-----------------------------------------------------------
@@ -45,12 +44,12 @@ pub struct RequestLesson {
     pub title: String,
     pub text: String,
     pub video_url: Option<String>,
-    pub volume: u32,
+    pub textbook_id: i32,
 }
 
 #[derive(Deserialize)]
 pub struct RequestWord {
     pub term: String,
     pub definition: String,
-    pub lesson: u32,
+    pub lesson_id: i32,
 }

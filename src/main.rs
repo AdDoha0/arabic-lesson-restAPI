@@ -1,5 +1,3 @@
-use std::{clone, net::TcpListener};
-
 use axum::{routing::{get, post}, Router};
 use sqlx::{PgPool};
 
@@ -8,11 +6,7 @@ mod lessons;
 mod handlers;
 
 use lessons::state::AppState;
-
-
-async fn root() -> &'static str {
-    "Arabic API"
-}
+use lessons::routes::create_router;
 
 
 
@@ -25,9 +19,7 @@ async fn main() {
         .await
         .expect("Failed to connect to Postgres");
 
-    let app = Router::new()
-        .route("/", get(root))
-        .with_state(AppState { db_pool: db_pool });
+    let app = create_router(AppState{ db_pool: db_pool });
 
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

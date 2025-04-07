@@ -57,7 +57,7 @@ pub async fn create_textbook(
 ) -> impl IntoResponse {
 
     let query = r#"
-        INSERT INTO textbook (title, description)
+        INSERT INTO lesson (title, )
         VALUES ($1, $2)
         RETURNING id, title, description
     "#;

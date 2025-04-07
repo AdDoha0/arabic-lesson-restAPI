@@ -53,3 +53,14 @@ pub struct RequestWord {
     pub definition: String,
     pub lesson_id: i32,
 }
+
+
+
+// --------------------------------path method----------------------------------------------------
+#[derive(Deserialize)]
+pub struct PatchLesson {
+    pub title: Option<String>,
+    pub text: Option<String>,
+    pub video_url: Option<String>,
+    pub textbook_id: Option<i32>,
+}

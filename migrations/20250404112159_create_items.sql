@@ -1,5 +1,3 @@
-
-
 CREATE TABLE textbook
 (
     id          SERIAL PRIMARY KEY,

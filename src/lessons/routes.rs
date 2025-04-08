@@ -27,6 +27,7 @@ pub fn create_router(state: AppState) -> Router {
         //-------------------------------lessons---------------------------------------------------
         .route("/api/v1/lessons", get(get_lessons).post(create_lesson))
         .route("/api/v1/lessons/{id}", get(get_leson).patch(update_lesson_patch).delete(delete_lesson))
+        .route("/api/v1/lessons/{id}/words", get(get_all_word_for_lesson))
 
 
         .with_state(state)

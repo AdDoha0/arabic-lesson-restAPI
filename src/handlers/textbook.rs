@@ -101,15 +101,18 @@ pub async fn update_textbook(
         .await;
 
     match result {
-        Ok(updated_textbook) => (StatusCode::OK, AnswerJson(updated_textbook)).into_response(),
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(err) => {
-            eprint!("Failed to update textbook: {:?}", err );
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            Ok(result) => match result {
+                Some(result) => AnswerJson(result).into_response(),
+                None => StatusCode::NOT_FOUND.into_response(),
+            }
+            Err(err) => {
+                eprint!("Failed to update textbook: {:?}", err);
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            },
         }
-    }
 
 }
+
 
 
 pub async fn delete_textbook(

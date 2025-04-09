@@ -204,10 +204,15 @@ pub async fn get_all_word_for_lesson(
         .await;
 
     match result {
-        Ok(result) => (StatusCode::OK, AnswerJson(result)).into_response(),
-        Err(err) => {
-            eprint!("Failed to get all word for lesson: {err}");
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        Ok(result) => match result {
+            Some(result) => AnswerJson(result).into_response(),
+            None => StatusCode::NOT_FOUND.into_response(),
         }
+        Err(err) => {
+            eprint!("Failed to get word: {:?}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        },
     }
 }
+
+

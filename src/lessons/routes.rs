@@ -8,7 +8,8 @@ use axum::{routing::get, Router};
 use super::state::AppState;
 use crate::handlers::{
     textbook::*,
-    lesson::*
+    lesson::*,
+    word::*
 };
 
 
@@ -28,6 +29,9 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/v1/lessons", get(get_lessons).post(create_lesson))
         .route("/api/v1/lessons/{id}", get(get_leson).patch(update_lesson_patch).delete(delete_lesson))
         .route("/api/v1/lessons/{id}/words", get(get_all_word_for_lesson))
+        //----------------------------------word---------------------------------------------------
+        .route("/api/v1/words", get(get_words).post(create_word))
+        .route("/api/v1/words/{id}", get(get_word).put(update_word_put).delete(delete_word))
 
 
         .with_state(state)

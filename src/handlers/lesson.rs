@@ -7,17 +7,10 @@ use serde::{Deserialize};
 
 
 
-use crate::lessons::serializers::{Lesson, RequestLesson, PatchLesson, Word};
+use crate::lessons::serializers::{Lesson, RequestLesson, PatchLesson, Word, NewWord};
 use crate::lessons::state::AppState;
+use crate::handlers::query::LessonQuery;
 
-
-
-
-
-#[derive(Deserialize)]
-pub struct LessonQuery {
-    textbook_id: Option<i32>,
-}
 
 pub async fn get_lessons(
     State(state): State<AppState>,
@@ -200,19 +193,49 @@ pub async fn get_all_word_for_lesson(
 
     let result = sqlx::query_as::<_, Word>(query)
         .bind(id)
-        .fetch_optional(&state.db_pool)
+        .fetch_all(&state.db_pool)
         .await;
 
     match result {
-        Ok(result) => match result {
-            Some(result) => AnswerJson(result).into_response(),
-            None => StatusCode::NOT_FOUND.into_response(),
-        }
-        Err(err) => {
-            eprint!("Failed to get word: {:?}", err);
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        Ok(words) => {
+            if words.is_empty() {
+                StatusCode::NOT_FOUND.into_response()
+            } else {
+                (StatusCode::OK, AnswerJson(words)).into_response()
+            }
         },
+        Err(err) => {
+            eprintln!("Failed to fetch words: {:?}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
     }
 }
 
 
+
+pub async fn add_word_to_lesson(
+    State(state): State<AppState>,
+    Path(lesson_id): Path<i32>,
+    Json(payload): Json<NewWord>,
+) -> impl IntoResponse {
+    let query = r#"
+        INSERT INTO word (term, definition, lesson_id)
+        VALUES ($1, $2, $3)
+        RETURNING id, term, definition, lesson_id
+    "#;
+
+    let result = sqlx::query_as::<_, Word>(query)
+        .bind(&payload.term)
+        .bind(&payload.definition)
+        .bind(lesson_id)
+        .fetch_one(&state.db_pool)
+        .await;
+
+    match result {
+        Ok(word) => (StatusCode::CREATED, AnswerJson(word)).into_response(),
+        Err(err) => {
+            eprintln!("Failed to insert word: {:?}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}

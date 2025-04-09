@@ -56,6 +56,15 @@ pub struct RequestWord {
 
 
 
+#[derive(Deserialize)]
+pub struct NewWord {
+    pub term: String,
+    pub definition: String,
+    // lesson_id берется из пути
+}
+
+
+
 // --------------------------------path method----------------------------------------------------
 #[derive(Deserialize)]
 pub struct PatchLesson {

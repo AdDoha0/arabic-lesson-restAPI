@@ -10,23 +10,46 @@ use serde::{Deserialize};
 
 use crate::lessons::serializers::{Word, RequestWord};
 use crate::lessons::state::AppState;
+use crate::handlers::query::WordQuery;
+
 
 
 
 pub async fn get_words(
     State(state): State<AppState>,
-    // Query(params): Query<LessonQuery>
+    Query(params): Query<WordQuery>
 ) -> impl IntoResponse {
+    let query;
+    let words_result;
 
-    let query = "SElECT * FROM word";
 
-    let result = sqlx::query_as::<_, Word>(query)
-        .fetch_all(&state.db_pool)
-        .await;
+    if let Some(lesson_id) = params.lesson_id {
+        query = "SELECT * FROM word WHERE lesson_id = $1";
+        words_result = sqlx::query_as::<_, Word>(query)
+            .bind(lesson_id)
+            .fetch_all(&state.db_pool)
+            .await;
 
-    match result {
-        Ok(result) => AnswerJson(result).into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    } else {
+        query = "SElECT * FROM word";
+        words_result = sqlx::query_as::<_, Word>(query)
+            .fetch_all(&state.db_pool)
+            .await;
+    }
+
+
+    match words_result {
+        Ok(words) => {
+            if words.is_empty() {
+                StatusCode::NOT_FOUND.into_response()
+            } else {
+                (StatusCode::OK, Json(words)).into_response()
+            }
+        },
+        Err(err) => {
+            eprintln!("DB error: {:?}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
     }
 }
 
@@ -60,6 +83,7 @@ pub async fn get_word(
 
 pub async fn create_word(
     State(state): State<AppState>,
+    Path(lsson_id): Path<i32>,
     Json(payload): Json<RequestWord>
 ) -> impl IntoResponse {
 
@@ -72,7 +96,7 @@ pub async fn create_word(
     let result = sqlx::query_as::<_, Word>(query)
         .bind(&payload.term)
         .bind(&payload.definition)
-        .bind(&payload.lesson_id)
+        .bind(lsson_id)
         .fetch_one(&state.db_pool)
         .await;
 

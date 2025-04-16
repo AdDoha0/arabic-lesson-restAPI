@@ -1,12 +1,20 @@
-use axum::{routing::{get, post}, Router};
-use sqlx::{PgPool};
+use sqlx::PgPool;
+
+use axum::http::header::{CONTENT_TYPE, HeaderName};
+
+
+use tower_http::cors::{CorsLayer, Any};
 
 
 mod lessons;
 mod handlers;
+mod utils;
 
 use lessons::state::AppState;
 use lessons::routes::create_router;
+
+
+
 
 
 
@@ -19,9 +27,21 @@ async fn main() {
         .await
         .expect("Failed to connect to Postgres");
 
-    let app = create_router(AppState{ db_pool: db_pool });
 
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_headers([CONTENT_TYPE])
+        .expose_headers([HeaderName::from_static("content-range")]);
+    // let middleware_stack = ServiceBuilder::new().layer(cors);
+
+
+
+    // Здесь создаём роуты и добавляем CORS как слой
+    let app = create_router(AppState{ db_pool: db_pool }).layer(cors);
+
+
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:2000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

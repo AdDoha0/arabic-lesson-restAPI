@@ -1,54 +1,63 @@
 use axum::{
-    extract::{Path, State, Json},
-    http::StatusCode,
+    extract::{Json, Path, Query, State},
+    http::{response, HeaderMap, HeaderValue, StatusCode},
 };
 use axum::response::{IntoResponse, Json as AnswerJson};
 
 
 use crate::lessons::serializers::{Textbook, RequestTextbook, Lesson};
 use crate::lessons::state::AppState;
+use crate::utils::pagination::{Pagination, PaginateQuery};
+
+
+
+impl PaginateQuery for Textbook {}
+
+
+
+
+
 
 
 pub async fn get_all_textbooks(
     State(state): State<AppState>,
+    Query(pagination): Query<Pagination>,
 ) -> impl IntoResponse {
+    let query = "SELECT * FROM textbook";
 
-    let query = "SElECT * FROM textbook";
+    match Textbook::paginate_query(&state.db_pool, query, &pagination).await {
+        Ok(records) => {
 
-    let result = sqlx::query_as::<_, Textbook>(query)
-        .fetch_all(&state.db_pool)
-        .await;
+            let total_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM textbook")
+                .fetch_one(&state.db_pool)
+                .await
+                .unwrap_or(0);
 
-    match result {
-        Ok(result) => AnswerJson(result).into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            let mut response  = AnswerJson(records).into_response();
+
+            // Нужные заголовки для пагинации
+            response.headers_mut()
+                .append("X-Total-Count", total_count.to_string().parse().unwrap());
+            response.headers_mut()
+                .append("X-Page", pagination.page.unwrap_or(1).to_string().parse().unwrap());
+            response.headers_mut()
+                .append("X-Per-Page", pagination.limit.unwrap_or(10).to_string().parse().unwrap());
+
+            response
+
+
+        },
+        Err(err) => {
+            eprint!("Failed to get textbooks: {:?}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
     }
 }
 
 
 
-pub async fn get_textbook(
-    State(state): State<AppState>,
-    Path(id): Path<i32>,
-) -> impl IntoResponse {
 
-    let query = r#"
-        SELECT * FROM textbook
-        WHERE id = $1
-    "#;
 
-    let result = sqlx::query_as::<_, Textbook>(query)
-        .bind(id)
-        .fetch_optional(&state.db_pool)
-        .await;
-
-    match result {
-        Ok(Some(textbook)) => (StatusCode::OK, AnswerJson(textbook)).into_response(),
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
-
-}
 
 
 pub async fn create_textbook(

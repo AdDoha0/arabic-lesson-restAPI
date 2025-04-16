@@ -5,6 +5,7 @@
 
 use axum::{routing::get, Router};
 
+
 use super::state::AppState;
 use crate::handlers::{
     textbook::*,
@@ -18,7 +19,14 @@ async fn root() -> &'static str {
 }
 
 
+
+
+
+
 pub fn create_router(state: AppState) -> Router {
+
+
+
     Router::new()
         .route("/api/v1/", get(root))
         //-------------------------------textbooks-------------------------------------------------
@@ -32,7 +40,6 @@ pub fn create_router(state: AppState) -> Router {
         //----------------------------------word---------------------------------------------------
         .route("/api/v1/words", get(get_words).post(create_word))
         .route("/api/v1/words/{id}", get(get_word).put(update_word_put).delete(delete_word))
-
 
         .with_state(state)
 }

@@ -1,45 +1,88 @@
-use serde::Deserialize;
-
 use async_trait::async_trait;
-use sqlx::{postgres::PgRow, FromRow, PgPool};
+use sqlx::{postgres::PgRow, FromRow, PgPool, Postgres, QueryBuilder};
+
+use axum::response::Response;
+use axum::http::HeaderValue;
 
 
-
-#[derive(Deserialize)]
-pub struct Pagination {
-    pub page: Option<i64>,
-    pub limit: Option<i64>,
+pub trait HasPagination {
+    fn page(&self) -> Option<i64>;
+    fn limit(&self) -> Option<i64>;
 }
 
 
-// "Я хочу, чтобы любой тип, который использует PaginateQuery, умел строиться из строки SQL,
-// можно было использовать его в асинхронном коде, и при этом он не использовал временные ссылки".
+pub enum PaginateResult<T> {
+    Success(Vec<T>),
+    NotFound,
+}
+
 
 #[async_trait]
 pub trait PaginateQuery
 where
     Self: Sized + for<'r> FromRow<'r, PgRow> + Send + Unpin + 'static,
 {
-    async fn paginate_query(
+    /// Универсальный метод пагинации
+    async fn paginate_query<'a, T: HasPagination + Send + Sync>(
         db_pool: &PgPool,
-        base_query: &str,
-        pagination: &Pagination,
-    ) -> Result<Vec<Self>, sqlx::Error> {
-        if pagination.page.is_none() || pagination.limit.is_none() {
-            return sqlx::query_as::<_, Self>(base_query)
-                .fetch_all(db_pool)
-                .await;
+        mut builder: QueryBuilder<'a, Postgres>,
+        params: &T,
+    ) -> Result<PaginateResult<Self>, sqlx::Error> {
+        // Получаем SQL-запрос, чтобы подсчитать количество записей
+        let count_sql = format!(
+            "SELECT COUNT(*) FROM ({}) AS subquery",
+            builder.sql()
+        );
+
+        // Считаем общее количество
+        let total_count: i64 = sqlx::query_scalar(&count_sql)
+            .fetch_one(db_pool)
+            .await
+            .unwrap_or(0);
+
+        // Если заданы параметры пагинации
+        if let (Some(page), Some(limit)) = (params.page(), params.limit()) {
+            let offset = (page - 1) * limit;
+
+            if offset >= total_count {
+                return Ok(PaginateResult::NotFound);
+            }
+
+            builder.push(" LIMIT ").push_bind(limit);
+            builder.push(" OFFSET ").push_bind(offset);
         }
 
-        let page = pagination.page.unwrap_or(1);
-        let limit = pagination.limit.unwrap_or(10);
-        let offset = (page - 1) * limit;
-        let paginated_query = format!("{} LIMIT $1 OFFSET $2", base_query);
-
-        sqlx::query_as::<_, Self>(&paginated_query)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(db_pool)
-            .await
+        let query = builder.build_query_as::<Self>();
+        let records = query.fetch_all(db_pool).await?;
+        Ok(PaginateResult::Success(records))
     }
+
+
+    fn add_pagination_headers<T: HasPagination>(
+        mut response: Response,
+        total_count: i64,
+        params: &T,
+    ) -> Response {
+        if let Ok(count_header) = HeaderValue::from_str(&total_count.to_string()) {
+            response.headers_mut().insert("X-Total-Count", count_header);
+        }
+
+        if let Ok(page_header) = HeaderValue::from_str(&params.page().unwrap_or(1).to_string()) {
+            response.headers_mut().insert("X-Page", page_header);
+        }
+
+        if let Ok(limit_header) = HeaderValue::from_str(&params.limit().unwrap_or(10).to_string()) {
+            response.headers_mut().insert("X-Per-Page", limit_header);
+        }
+
+        response
+    }
+
+
+
 }
+
+
+
+
+

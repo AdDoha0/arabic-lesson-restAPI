@@ -32,7 +32,6 @@ pub fn create_router(state: AppState) -> Router {
         //-------------------------------textbooks-------------------------------------------------
         .route("/api/v1/textbooks", get(get_all_textbooks).post(create_textbook))
         .route("/api/v1/textbooks/{id}", get(get_textbook).put(update_textbook).delete(delete_textbook))
-        .route("/api/v1/textbooks/{id}/lessons", get(get_all_lessons_for_textbook))
         //-------------------------------lessons---------------------------------------------------
         .route("/api/v1/lessons", get(get_lessons).post(create_lesson))
         .route("/api/v1/lessons/{id}", get(get_leson).patch(update_lesson_patch).delete(delete_lesson))

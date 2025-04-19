@@ -1,52 +1,78 @@
+use std::thread::Builder;
+
 use axum::{
     extract::{Json, Path, Query, State},
     http::StatusCode,
 };
 use axum::response::{IntoResponse, Json as AnswerJson};
-use serde::{Deserialize};
+use sqlx::QueryBuilder;
+use serde::Deserialize;
+
 
 
 
 use crate::lessons::serializers::{Lesson, RequestLesson, PatchLesson, Word, NewWord};
 use crate::lessons::state::AppState;
-use crate::handlers::query::LessonQuery;
+use crate::utils::pagination::{PaginateQuery, PaginateResult, HasPagination};
 
 
+impl  PaginateQuery for Lesson {}
+
+
+#[derive(Deserialize)]
+pub struct LessonQuery {
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
+    pub textbook_id: Option<i32>,
+}
+
+impl HasPagination for LessonQuery {
+    fn page(&self) -> Option<i64> {
+        self.page
+    }
+
+    fn limit(&self) -> Option<i64> {
+        self.limit
+    }
+
+}
+
+
+#[axum::debug_handler]
 pub async fn get_lessons(
     State(state): State<AppState>,
     Query(params): Query<LessonQuery>
 ) -> impl IntoResponse {
-    let query;
-    let lessons_result;
 
+    let mut builder = QueryBuilder::new("SELECT * FROM lesson WHERE 1=1");
 
-    if let Some(textbook_id) = params.textbook_id {
-        query = "SELECT * FROM lesson WHERE textbook_id = $1";
-        lessons_result = sqlx::query_as::<_, Lesson>(query)
-            .bind(textbook_id)
-            .fetch_all(&state.db_pool)
-            .await;
-    } else {
-        query = "SELECT * FROM lesson";
-        lessons_result = sqlx::query_as::<_, Lesson>(query)
-            .fetch_all(&state.db_pool)
-            .await;
+    if let Some(id) = params.textbook_id {
+        builder.push(" AND textbook_id = ").push_bind(id);
     }
 
+    builder.push(" ORDER BY id");
 
-    match lessons_result {
-        Ok(lessons) => {
-            if lessons.is_empty() {
-                StatusCode::NOT_FOUND.into_response()
-            } else {
-                (StatusCode::OK, Json(lessons)).into_response()
-            }
+    let lesson_result = Lesson::paginate_query(&state.db_pool, builder, &params).await;
+
+    match lesson_result {
+        Ok(PaginateResult::Success(recods)) => {
+            let mut response = AnswerJson(recods).into_response();
+
+            let total_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM lesson")
+                .fetch_one(&state.db_pool)
+                .await
+                .unwrap_or(0);
+
+            response = Lesson::add_pagination_headers(response, total_count, &params);
+
+            response
         },
-
+        Ok(PaginateResult::NotFound) => StatusCode::NOT_FOUND.into_response(),
         Err(err) => {
             eprintln!("DB error: {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
+
     }
 
 

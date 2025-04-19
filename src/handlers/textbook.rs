@@ -1,60 +1,97 @@
 use axum::{
     extract::{Json, Path, Query, State},
-    http::{response, HeaderMap, HeaderValue, StatusCode},
+    http::{response, HeaderMap, HeaderValue, StatusCode}
 };
 use axum::response::{IntoResponse, Json as AnswerJson};
+use axum::debug_handler;
 
+use serde::Deserialize;
+use sqlx::{Postgres, QueryBuilder};
 
 use crate::lessons::serializers::{Textbook, RequestTextbook, Lesson};
 use crate::lessons::state::AppState;
-use crate::utils::pagination::{Pagination, PaginateQuery};
+use crate::utils::pagination::{HasPagination, PaginateQuery, PaginateResult};
 
 
 
 impl PaginateQuery for Textbook {}
 
 
+#[derive(Deserialize)]
+pub struct TextbookQuery {
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
+}
+
+impl HasPagination for TextbookQuery {
+    fn page(&self) -> Option<i64> {
+        self.page
+    }
+
+    fn limit(&self) -> Option<i64> {
+        self.limit
+    }
+
+}
 
 
-
-
-
+#[debug_handler]
 pub async fn get_all_textbooks(
     State(state): State<AppState>,
-    Query(pagination): Query<Pagination>,
+    Query(params): Query<TextbookQuery>,
 ) -> impl IntoResponse {
-    let query = "SELECT * FROM textbook";
+    let mut builder = QueryBuilder::new("SELECT * FROM textbook WHERE 1=1");
 
-    match Textbook::paginate_query(&state.db_pool, query, &pagination).await {
-        Ok(records) => {
+    builder.push(" ORDER BY id");
+
+
+    match Textbook::paginate_query(&state.db_pool, builder, &params).await {
+        Ok(PaginateResult::Success(records)) => {
+            let mut response  = AnswerJson(records).into_response();
 
             let total_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM textbook")
                 .fetch_one(&state.db_pool)
                 .await
                 .unwrap_or(0);
 
-            let mut response  = AnswerJson(records).into_response();
-
-            // Нужные заголовки для пагинации
-            response.headers_mut()
-                .append("X-Total-Count", total_count.to_string().parse().unwrap());
-            response.headers_mut()
-                .append("X-Page", pagination.page.unwrap_or(1).to_string().parse().unwrap());
-            response.headers_mut()
-                .append("X-Per-Page", pagination.limit.unwrap_or(10).to_string().parse().unwrap());
+            response = Textbook::add_pagination_headers(response, total_count, &params);
 
             response
 
-
         },
+        Ok(PaginateResult::NotFound) => StatusCode::NOT_FOUND.into_response(),
         Err(err) => {
-            eprint!("Failed to get textbooks: {:?}", err);
+            eprintln!("Failed to get textbooks: {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
 }
 
 
+
+
+pub async fn get_textbook(
+    State(state): State<AppState>,
+    Path(id): Path<i32>,
+) -> impl IntoResponse {
+
+    let query = r#"
+        SELECT * FROM textbook
+        WHERE id = $1
+    "#;
+
+    let result = sqlx::query_as::<_, Textbook>(query)
+        .bind(id)
+        .fetch_optional(&state.db_pool)
+        .await;
+
+    match result {
+        Ok(Some(textbook)) => (StatusCode::OK, AnswerJson(textbook)).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+
+}
 
 
 
@@ -146,37 +183,6 @@ pub async fn delete_textbook(
             eprint!("Failed to delete textbook {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
-    }
-}
-
-
-
-pub async fn get_all_lessons_for_textbook(
-    State(state): State<AppState>,
-    Path(id): Path<i32>,
-) -> impl IntoResponse {
-    let query = r#"
-        SELECT * FROM lesson
-        WHERE textbook_id = $1
-    "#;
-
-    let result = sqlx::query_as::<_, Lesson>(query)
-        .bind(id)
-        .fetch_all(&state.db_pool)
-        .await;
-
-    match result {
-        Ok(lessons) => {
-            if lessons.is_empty() {
-                StatusCode::NOT_FOUND.into_response()
-            } else {
-                (StatusCode::OK, AnswerJson(lessons)).into_response()
-            }
-        },
-        Err(err) => {
-            eprint!("Failed to get lessons for textbook: {:?}", err);
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        },
     }
 }
 

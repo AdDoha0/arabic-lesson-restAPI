@@ -19,10 +19,6 @@ async fn root() -> &'static str {
 }
 
 
-
-
-
-
 pub fn create_router(state: AppState) -> Router {
 
 

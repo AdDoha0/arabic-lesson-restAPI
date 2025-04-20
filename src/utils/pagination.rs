@@ -2,8 +2,7 @@ use async_trait::async_trait;
 use sqlx::{postgres::PgRow, FromRow, PgPool, Postgres, QueryBuilder};
 
 use axum::response::Response;
-use axum::http::HeaderValue;
-
+use axum::http::header::{HeaderName, HeaderValue};
 
 pub trait HasPagination {
     fn page(&self) -> Option<i64>;
@@ -63,23 +62,31 @@ where
         total_count: i64,
         params: &T,
     ) -> Response {
-        if let Ok(count_header) = HeaderValue::from_str(&total_count.to_string()) {
-            response.headers_mut().insert("X-Total-Count", count_header);
+        let page = params.page().unwrap_or(1);
+        let limit = params.limit().unwrap_or(10);
+
+        let start = (page - 1) * limit;
+        let end = (start + limit - 1).min(total_count.saturating_sub(1));
+
+        let content_range = format!("items {}-{}/{}", start, end, total_count);
+
+        if let Ok(val) = HeaderValue::from_str(&content_range) {
+            let header = HeaderName::from_static("content-range");
+            response.headers_mut().insert(header, val);
         }
 
-        if let Ok(page_header) = HeaderValue::from_str(&params.page().unwrap_or(1).to_string()) {
-            response.headers_mut().insert("X-Page", page_header);
+        if let Ok(val) = HeaderValue::from_str("Content-Range") {
+            let expose_header = HeaderName::from_static("access-control-expose-headers");
+            response.headers_mut().insert(expose_header, val);
         }
 
-        if let Ok(limit_header) = HeaderValue::from_str(&params.limit().unwrap_or(10).to_string()) {
-            response.headers_mut().insert("X-Per-Page", limit_header);
+        if let Ok(val) = HeaderValue::from_str(&total_count.to_string()) {
+            let header = HeaderName::from_static("x-total-count");
+            response.headers_mut().insert(header, val);
         }
 
         response
     }
-
-
-
 }
 
 

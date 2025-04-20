@@ -103,7 +103,7 @@ pub async fn create_textbook(
 ) -> impl IntoResponse {
 
     let query = r#"
-        INSERT INTO lesson (title, )
+        INSERT INTO textbook (title, description)
         VALUES ($1, $2)
         RETURNING id, title, description
     "#;
@@ -185,5 +185,3 @@ pub async fn delete_textbook(
         }
     }
 }
-
-

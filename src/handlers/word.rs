@@ -1,4 +1,3 @@
-
 use axum::{
     extract::{Json, Path, Query, State},
     http::StatusCode,
@@ -83,7 +82,6 @@ pub async fn get_word(
 
 pub async fn create_word(
     State(state): State<AppState>,
-    Path(lsson_id): Path<i32>,
     Json(payload): Json<RequestWord>
 ) -> impl IntoResponse {
 
@@ -96,12 +94,12 @@ pub async fn create_word(
     let result = sqlx::query_as::<_, Word>(query)
         .bind(&payload.term)
         .bind(&payload.definition)
-        .bind(lsson_id)
+        .bind(&payload.lesson_id)
         .fetch_one(&state.db_pool)
         .await;
 
     match result {
-        Ok(result) => AnswerJson(result).into_response(),
+        Ok(word) => (StatusCode::CREATED, AnswerJson(word)).into_response(),
         Err(err) => {
             eprint!("Failed to create word: {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()

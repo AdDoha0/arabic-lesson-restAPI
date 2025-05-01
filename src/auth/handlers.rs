@@ -78,9 +78,24 @@ async fn login(
 
 
 
-// pub fn is_valid_user(username: &str, password: &str) -> bool {
+pub async fn is_valid_user(state: &AppState, username: &str, password: &str) -> Result<bool, sqlx::Error> {
+    let query = r#"
+        SELECT password_hash 
+        FROM users 
+        WHERE username = $1
+    "#;
 
-// }
+    let result = sqlx::query_scalar::<_, String>(query)
+        .bind(username)
+        .fetch_optional(&state.db_pool)
+        .await?;
+
+    match result {
+        Some(hash) => Ok(verify(password, &hash).unwrap_or(false)),
+        None => Ok(false)
+    }
+}
+
 
 // async fn get_info_handler() -> impl IntoResponse {
 

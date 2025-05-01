@@ -35,7 +35,7 @@ pub struct LoginReponse {
 
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct Claims {
-    sub: String,
-    exp: usize,
+pub struct Claims {
+    pub sub: String,
+    pub exp: usize,
 }

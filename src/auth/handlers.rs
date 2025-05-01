@@ -1,5 +1,6 @@
 use axum::debug_handler;
 use axum::extract::rejection::FailedToBufferBody;
+use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Json as AnswerJson};
 use axum::{
     extract::{Json, Path, Query, State},
@@ -14,7 +15,7 @@ use bcrypt::{hash, verify};
 
 
 use crate::lessons::state::AppState;
-use crate::auth::seralizers::{RequestUsers, Users, LoginInfo, LoginReponse};
+use crate::auth::seralizers::{RequestUsers, Users, LoginInfo, LoginReponse, Claims};
 
 
 
@@ -35,9 +36,6 @@ pub async fn register(
     if check_result_username.0 == false {
         return (StatusCode::BAD_REQUEST, AnswerJson(json!({"error": check_result_username.1}))).into_response();
     }
-
-
-    
     
     let query =   r#"
     INSERT INTO users (username, password_hash, email, created_at, updated_at)
@@ -67,42 +65,100 @@ pub async fn register(
 
 
 async fn login(
+    State(state): State<AppState>,
     Json(login_info): Json<LoginInfo>
 ) -> impl IntoResponse {
     let username = &login_info.username;
     let password = &login_info.password;
 
+    match is_valid_user(&state, &username, &password).await {
+        UserValidationResult::DatabaseError => StatusCode::INTERNAL_SERVER_ERROR.into_response(), 
+        UserValidationResult::InvalidCredentials => (StatusCode::UNAUTHORIZED, AnswerJson(json!({
+            "status": "error",
+            "message": "Invalid credentials"
+        }))).into_response(),
+        UserValidationResult::Valid => {
 
+            let claims = Claims {
+                sub: username.clone(),
+                exp: (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp() as usize
+            };
 
+            let secret_jwt = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+
+            let token = match encode(&Header::default(), &claims, &EncodingKey::from_secret(secret_jwt)) {
+                Ok(token) => token,
+                Err(e) => {
+                    eprint!("Error Generation Token {}", e);
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                }
+            };
+            (StatusCode::OK, Json(LoginResponse { token })).into_response()
+        } 
+    } 
 }
 
 
 
-pub async fn is_valid_user(state: &AppState, username: &str, password: &str) -> Result<bool, sqlx::Error> {
+#[derive(Debug)]
+pub enum UserValidationResult {
+    Valid,               // Пользователь существует и пароль верный
+    InvalidCredentials,  // Пользователь не существует или пароль неверный
+    DatabaseError,       // Ошибка базы данных
+}
+
+
+
+pub async fn is_valid_user(state: &AppState, username: &str, password: &str) -> UserValidationResult {
     let query = r#"
         SELECT password_hash 
         FROM users 
         WHERE username = $1
     "#;
 
-    let result = sqlx::query_scalar::<_, String>(query)
+    let result = match sqlx::query_scalar::<_, String>(query)
         .bind(username)
         .fetch_optional(&state.db_pool)
-        .await?;
+        .await {
+            Ok(result) => result,
+            Err(_) => return UserValidationResult::DatabaseError,
+        };
+
 
     match result {
-        Some(hash) => Ok(verify(password, &hash).unwrap_or(false)),
-        None => Ok(false)
-    }
+            Some(hash) => {
+                match verify(password, &hash) {
+                    Ok(true) => UserValidationResult::Valid,
+                    _ => UserValidationResult::InvalidCredentials,
+                }
+            },
+            None => UserValidationResult::InvalidCredentials,
+        }
 }
 
+async fn get_info_handler(header_map: HeaderMap) -> impl IntoResponse {
+    let secret_jwt = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
 
-// async fn get_info_handler() -> impl IntoResponse {
+    if let Some(auth_header) = header_map.get("Authorization") {
+        if let Ok(auth_header_str) = auth_header.to_str() {
+            if auth_header_str.starts_with("Bearer ") {
+                let token = auth_header_str.trim_start_matches("Bearer ").to_string();
 
-// }
-
-
-
+                match decode::<Claims>(&token, &DecodingKey::from_secret(&secret_jwt),  &Validation::default()) {
+                    Ok(_) => {
+                        let info = "You are valid here is info".to_string();
+                        return AnswerJson(info).into_response();
+                    }
+                    Err(e) => {
+                        eprint!("Error Generation Token {}", e);
+                        return StatusCode::UNAUTHORIZED.into_response()
+                    }
+                }
+            }
+        };
+    }
+    StatusCode::UNAUTHORIZED.into_response()
+}
 
 
 pub fn validate_username(username: &str) -> (bool, String) {

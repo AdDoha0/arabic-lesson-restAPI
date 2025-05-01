@@ -386,6 +386,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dotenv"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c85f82cb889d8f1f1a6cb26fe215f6d2ac5f7af6fc4a5245a74c98f0174b231"
+
+[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1009,6 +1015,7 @@ dependencies = [
  "axum",
  "bcrypt",
  "chrono",
+ "dotenv",
  "headers",
  "http 0.2.12",
  "jsonwebtoken",

@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
-use sqlx::{FromRow};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 // use chrono::NaiveDateTime;
 use sqlx::types::chrono::NaiveDateTime;
 
@@ -7,9 +7,8 @@ use sqlx::types::chrono::NaiveDateTime;
 pub struct Textbook {
     pub id: i32,
     pub title: String,
-    pub description: String
+    pub description: String,
 }
-
 
 #[derive(Serialize, FromRow)]
 pub struct Lesson {
@@ -20,8 +19,6 @@ pub struct Lesson {
     pub created_at: NaiveDateTime,
     pub textbook_id: i32,
 }
-
-
 
 #[derive(Serialize, FromRow)]
 pub struct Word {
@@ -54,16 +51,12 @@ pub struct RequestWord {
     pub lesson_id: i32,
 }
 
-
-
 #[derive(Deserialize)]
 pub struct NewWord {
     pub term: String,
     pub definition: String,
     // lesson_id берется из пути
 }
-
-
 
 // --------------------------------path method----------------------------------------------------
 #[derive(Deserialize)]

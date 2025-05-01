@@ -1,23 +1,18 @@
 use std::thread::Builder;
 
+use axum::response::{IntoResponse, Json as AnswerJson};
 use axum::{
     extract::{Json, Path, Query, State},
     http::StatusCode,
 };
-use axum::response::{IntoResponse, Json as AnswerJson};
-use sqlx::QueryBuilder;
 use serde::Deserialize;
+use sqlx::QueryBuilder;
 
-
-
-
-use crate::lessons::serializers::{Lesson, RequestLesson, PatchLesson, Word, NewWord};
+use crate::lessons::serializers::{Lesson, NewWord, PatchLesson, RequestLesson, Word};
 use crate::lessons::state::AppState;
-use crate::utils::pagination::{PaginateQuery, PaginateResult, HasPagination};
+use crate::utils::pagination::{HasPagination, PaginateQuery, PaginateResult};
 
-
-impl  PaginateQuery for Lesson {}
-
+impl PaginateQuery for Lesson {}
 
 #[derive(Deserialize)]
 pub struct LessonQuery {
@@ -34,16 +29,13 @@ impl HasPagination for LessonQuery {
     fn limit(&self) -> Option<i64> {
         self.limit
     }
-
 }
-
 
 #[axum::debug_handler]
 pub async fn get_lessons(
     State(state): State<AppState>,
-    Query(params): Query<LessonQuery>
+    Query(params): Query<LessonQuery>,
 ) -> impl IntoResponse {
-
     let mut builder = QueryBuilder::new("SELECT * FROM lesson WHERE 1=1");
 
     if let Some(id) = params.textbook_id {
@@ -66,26 +58,17 @@ pub async fn get_lessons(
             response = Lesson::add_pagination_headers(response, total_count, &params);
 
             response
-        },
+        }
         Ok(PaginateResult::NotFound) => StatusCode::NOT_FOUND.into_response(),
         Err(err) => {
             eprintln!("DB error: {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
-
     }
-
-
 }
 
-
-
-pub async fn get_leson(
-    State(state): State<AppState>,
-    Path(id): Path<i32>,
-) -> impl IntoResponse {
-
-        let query = r#"
+pub async fn get_leson(State(state): State<AppState>, Path(id): Path<i32>) -> impl IntoResponse {
+    let query = r#"
             SELECT * FROM lesson
             WHERE id = $1
         "#;
@@ -100,17 +83,12 @@ pub async fn get_leson(
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
-
 }
-
-
-
 
 pub async fn create_lesson(
     State(state): State<AppState>,
-    Json(payload): Json<RequestLesson>
+    Json(payload): Json<RequestLesson>,
 ) -> impl IntoResponse {
-
     let query = r#"
         INSERT INTO lesson (title, text, video_url, textbook_id)
         VALUES ($1, $2, $3, $4)
@@ -130,11 +108,9 @@ pub async fn create_lesson(
         Err(err) => {
             eprint!("Failed to create lesson: {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        },
+        }
     }
-
 }
-
 
 pub async fn update_lesson_patch(
     Path(lesson_id): Path<i32>,
@@ -145,7 +121,8 @@ pub async fn update_lesson_patch(
     if payload.title.is_none()
         && payload.text.is_none()
         && payload.video_url.is_none()
-        && payload.textbook_id.is_none() {
+        && payload.textbook_id.is_none()
+    {
         return Err((StatusCode::BAD_REQUEST, "No fields to update".to_string()));
     }
 
@@ -170,16 +147,19 @@ pub async fn update_lesson_patch(
 
     match result {
         Ok(Some(lesson)) => Ok(AnswerJson(lesson)),
-        Ok(None) => Err((StatusCode::NOT_FOUND, format!("Lesson with id {} not found", lesson_id))),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            format!("Lesson with id {} not found", lesson_id),
+        )),
         Err(err) => {
             eprintln!("Failed to update lesson: {:?}", err);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to update lesson".to_string()))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to update lesson".to_string(),
+            ))
         }
     }
 }
-
-
-
 
 pub async fn delete_lesson(
     State(state): State<AppState>,
@@ -206,8 +186,6 @@ pub async fn delete_lesson(
     }
 }
 
-
-
 pub async fn get_all_word_for_lesson(
     State(state): State<AppState>,
     Path(id): Path<i32>,
@@ -229,15 +207,13 @@ pub async fn get_all_word_for_lesson(
             } else {
                 (StatusCode::OK, AnswerJson(words)).into_response()
             }
-        },
+        }
         Err(err) => {
             eprintln!("Failed to fetch words: {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
 }
-
-
 
 pub async fn add_word_to_lesson(
     State(state): State<AppState>,

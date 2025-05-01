@@ -1,14 +1,13 @@
 use async_trait::async_trait;
 use sqlx::{postgres::PgRow, FromRow, PgPool, Postgres, QueryBuilder};
 
-use axum::response::Response;
 use axum::http::header::{HeaderName, HeaderValue};
+use axum::response::Response;
 
 pub trait HasPagination {
     fn page(&self) -> Option<i64>;
     fn limit(&self) -> Option<i64>;
 }
-
 
 pub enum PaginateResult<T> {
     Success(Vec<T>),
@@ -28,10 +27,7 @@ where
         params: &T,
     ) -> Result<PaginateResult<Self>, sqlx::Error> {
         // Получаем SQL-запрос, чтобы подсчитать количество записей
-        let count_sql = format!(
-            "SELECT COUNT(*) FROM ({}) AS subquery",
-            builder.sql()
-        );
+        let count_sql = format!("SELECT COUNT(*) FROM ({}) AS subquery", builder.sql());
 
         // Считаем общее количество
         let total_count: i64 = sqlx::query_scalar(&count_sql)
@@ -55,7 +51,6 @@ where
         let records = query.fetch_all(db_pool).await?;
         Ok(PaginateResult::Success(records))
     }
-
 
     fn add_pagination_headers<T: HasPagination>(
         mut response: Response,
@@ -88,8 +83,3 @@ where
         response
     }
 }
-
-
-
-
-

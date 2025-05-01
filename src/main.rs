@@ -1,15 +1,16 @@
-use sqlx::PgPool;
-use axum::http::{HeaderName, HeaderValue};
-use axum::http::header::{CONTENT_TYPE, ACCEPT, AUTHORIZATION};
+use axum::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use axum::http::Method;
+use axum::http::{HeaderName, HeaderValue};
+use sqlx::PgPool;
 use tower_http::cors::CorsLayer;
 
-mod lessons;
 mod handlers;
+mod lessons;
 mod utils;
+mod auth;
 
-use lessons::state::AppState;
 use lessons::routes::create_router;
+use lessons::state::AppState;
 
 #[tokio::main]
 async fn main() {
@@ -22,12 +23,18 @@ async fn main() {
 
     let cors = CorsLayer::new()
         .allow_origin(HeaderValue::from_static("http://localhost:3000"))
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::PATCH])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::PATCH,
+        ])
         .allow_headers([CONTENT_TYPE, ACCEPT, AUTHORIZATION])
         .allow_credentials(true)
         .expose_headers([HeaderName::from_static("content-range")]);
 
-    let app = create_router(AppState{ db_pool: db_pool }).layer(cors);
+    let app = create_router(AppState { db_pool: db_pool }).layer(cors);
 
     println!("Server running on http://0.0.0.0:2000");
     let listener = tokio::net::TcpListener::bind("0.0.0.0:2000").await.unwrap();

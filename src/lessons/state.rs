@@ -1,4 +1,4 @@
-use sqlx::{query_as, Error, PgPool, };
+use sqlx::{query_as, Error, PgPool};
 
 #[derive(Clone)]
 pub struct AppState {

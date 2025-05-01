@@ -5,12 +5,21 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.8.3", features = ["macros"] }
+headers = "0.4"
 tokio = { version = "1", features = ["full"] }
+
 serde = { version = "1.0", features = ["derive"] }
-sqlx = { version = "0.8.2", features = ["postgres", "runtime-tokio-native-tls", "derive", "chrono"]}
-dotenv = "0.15"
+serde_json = "1.0"
+sqlx = { version = "0.8.2", features = ["postgres", "runtime-tokio-native-tls", "derive", "chrono"] }
+
+
 chrono = { version = "0.4", features = ["serde"] }
 tower-http = { version = "0.5", features = ["cors"] }
 http = "0.2"
 tower = "0.4"
 async-trait = "0.1"
+
+
+
+jsonwebtoken = "9.2"
+bcrypt = "0.17.0"

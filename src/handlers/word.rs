@@ -1,26 +1,20 @@
+use axum::response::{IntoResponse, Json as AnswerJson};
 use axum::{
     extract::{Json, Path, Query, State},
     http::StatusCode,
 };
-use axum::response::{IntoResponse, Json as AnswerJson};
-use serde::{Deserialize};
+use serde::Deserialize;
 
-
-
-use crate::lessons::serializers::{Word, RequestWord};
-use crate::lessons::state::AppState;
 use crate::handlers::query::WordQuery;
-
-
-
+use crate::lessons::serializers::{RequestWord, Word};
+use crate::lessons::state::AppState;
 
 pub async fn get_words(
     State(state): State<AppState>,
-    Query(params): Query<WordQuery>
+    Query(params): Query<WordQuery>,
 ) -> impl IntoResponse {
     let query;
     let words_result;
-
 
     if let Some(lesson_id) = params.lesson_id {
         query = "SELECT * FROM word WHERE lesson_id = $1";
@@ -28,14 +22,12 @@ pub async fn get_words(
             .bind(lesson_id)
             .fetch_all(&state.db_pool)
             .await;
-
     } else {
         query = "SElECT * FROM word";
         words_result = sqlx::query_as::<_, Word>(query)
             .fetch_all(&state.db_pool)
             .await;
     }
-
 
     match words_result {
         Ok(words) => {
@@ -44,7 +36,7 @@ pub async fn get_words(
             } else {
                 (StatusCode::OK, Json(words)).into_response()
             }
-        },
+        }
         Err(err) => {
             eprintln!("DB error: {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -52,39 +44,30 @@ pub async fn get_words(
     }
 }
 
-
-
-
-pub async fn get_word(
-    State(state): State<AppState>,
-    Path(id): Path<i32>,
-) -> impl IntoResponse {
+pub async fn get_word(State(state): State<AppState>, Path(id): Path<i32>) -> impl IntoResponse {
     let query = "SELECT * FROM word WHERE id = $1";
 
     let result = sqlx::query_as::<_, Word>(query)
-       .bind(id)
-       .fetch_optional(&state.db_pool)
-       .await;
+        .bind(id)
+        .fetch_optional(&state.db_pool)
+        .await;
 
     match result {
         Ok(result) => match result {
             Some(result) => AnswerJson(result).into_response(),
             None => StatusCode::NOT_FOUND.into_response(),
-        }
+        },
         Err(err) => {
             eprint!("Failed to get word: {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        },
+        }
     }
 }
 
-
-
 pub async fn create_word(
     State(state): State<AppState>,
-    Json(payload): Json<RequestWord>
+    Json(payload): Json<RequestWord>,
 ) -> impl IntoResponse {
-
     let query = r#"
         INSERT INTO word (term, definition, lesson_id)
         VALUES ($1, $2, $3)
@@ -103,13 +86,9 @@ pub async fn create_word(
         Err(err) => {
             eprint!("Failed to create word: {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        },
+        }
     }
 }
-
-
-
-
 
 pub async fn update_word_put(
     Path(lesson_id): Path<i32>,
@@ -133,22 +112,21 @@ pub async fn update_word_put(
 
     match result {
         Ok(Some(lesson)) => Ok(AnswerJson(lesson)),
-        Ok(None) => Err((StatusCode::NOT_FOUND, format!("Lesson with id {} not found", lesson_id))),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            format!("Lesson with id {} not found", lesson_id),
+        )),
         Err(err) => {
             eprintln!("Failed to update lesson: {:?}", err);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to update lesson".to_string()))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to update lesson".to_string(),
+            ))
         }
     }
 }
 
-
-
-
-pub async fn delete_word(
-    State(state): State<AppState>,
-    Path(id): Path<i32>,
-) -> impl IntoResponse {
-
+pub async fn delete_word(State(state): State<AppState>, Path(id): Path<i32>) -> impl IntoResponse {
     let query = r#"
         DELETE FROM word
         WHERE id = $1
@@ -156,9 +134,9 @@ pub async fn delete_word(
     "#;
 
     let result = sqlx::query(query)
-       .bind(id)
-       .fetch_optional(&state.db_pool)
-       .await;
+        .bind(id)
+        .fetch_optional(&state.db_pool)
+        .await;
 
     match result {
         Ok(Some(_)) => StatusCode::OK.into_response(),

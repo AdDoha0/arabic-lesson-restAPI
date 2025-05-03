@@ -1,16 +1,12 @@
-use axum::debug_handler;
-use axum::extract::rejection::FailedToBufferBody;
 use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Json as AnswerJson};
 use axum::{
-    extract::{Json, Path, Query, State},
+    extract::{Json, State},
     http::StatusCode,
 };
 
 use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey};
-use serde::ser::Impossible;
 use serde_json::json;
-use std::env;
 use bcrypt::{hash, verify};
 
 
@@ -86,14 +82,14 @@ async fn login(
 
             let secret_jwt = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
 
-            let token = match encode(&Header::default(), &claims, &EncodingKey::from_secret(secret_jwt)) {
+            let token = match encode(&Header::default(), &claims, &EncodingKey::from_secret(secret_jwt.as_bytes())) {
                 Ok(token) => token,
                 Err(e) => {
                     eprint!("Error Generation Token {}", e);
                     return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                 }
             };
-            (StatusCode::OK, Json(LoginResponse { token })).into_response()
+            (StatusCode::OK, Json(LoginReponse { token })).into_response()
         } 
     } 
 }
@@ -144,7 +140,7 @@ async fn get_info_handler(header_map: HeaderMap) -> impl IntoResponse {
             if auth_header_str.starts_with("Bearer ") {
                 let token = auth_header_str.trim_start_matches("Bearer ").to_string();
 
-                match decode::<Claims>(&token, &DecodingKey::from_secret(&secret_jwt),  &Validation::default()) {
+                match decode::<Claims>(&token, &DecodingKey::from_secret(&secret_jwt.as_bytes()),  &Validation::default()) {
                     Ok(_) => {
                         let info = "You are valid here is info".to_string();
                         return AnswerJson(info).into_response();

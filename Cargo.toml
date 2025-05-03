@@ -19,7 +19,7 @@ http = "0.2"
 tower = "0.4"
 async-trait = "0.1"
 
-dotenv = "0.1.0"
+dotenv = "0.15"
 
 jsonwebtoken = "9.2"
 bcrypt = "0.17.0"
